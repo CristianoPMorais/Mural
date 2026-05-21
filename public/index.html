@@ -186,7 +186,7 @@
                     const currentText = announcements[slotId] || '';
 
                     if (currentRole === 'admin') {
-                        tdDay.innerHTML = `<textarea id="${slotId}" onchange="saveAnnouncement('${slotId}', this.value)" placeholder="Digite o anúncio...">${currentText}</textarea>`;
+                        tdDay.innerHTML = `<textarea id="${slotId}" oninput="saveAnnouncement('${slotId}', this.value)" placeholder="Digite o anúncio...">${currentText}</textarea>`;
                     } else {
                         tdDay.innerHTML = `<div class="announcement-box">${currentText || '<span style="color:#bbb; font-style:italic;">Sem anúncios</span>'}</div>`;
                     }
