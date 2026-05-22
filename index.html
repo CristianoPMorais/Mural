@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadro de Anúncios - Horários</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: var(--primary-color); margin-bottom: 20px; }
+        #auth-container {
+            background: white; padding: 30px; border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center;
+            max-width: 400px; width: 100%; margin-top: 50px;
+        }
+        input[type="password"] {
+            width: 80%; padding: 10px; margin: 15px 0;
+            border: 1px solid #ccc; border-radius: 4px; font-size: 16px; text-align: center;
+        }
+        button {
+            background-color: var(--accent-color); color: white; border: none;
+            padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #2980b9; }
+        #main-content { display: none; width: 100%; max-width: 1200px; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 20px; }
+        .badge { padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+        .badge-visitor { background: #e1f5fe; color: #0288d1; }
+        .badge-admin { background: #e8f5e9; color: #388e3c; }
+        .table-container { background: white; overflow-x: auto; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th, td { border: 1px solid #e0e0e0; padding: 12px; text-align: center; vertical-align: top; }
+        th { background-color: var(--primary-color); color: white; font-weight: 600; }
+        th:first-child { background-color: #34495e; width: 100px; }
+        .time-slot { font-weight: bold; background-color: #f1f2f6; color: var(--primary-color); }
+        .announcement-box { min-height: 60px; padding: 5px; border-radius: 4px; font-size: 14px; line-height: 1.4; word-break: break-word; }
+        textarea { width: 95%; height: 60px; border: 1px solid #ddd; border-radius: 4px; resize: none; font-family: inherit; padding: 5px; }
+        textarea:focus { border-color: var(--accent-color); outline: none; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-container">
+        <h2>Acesso ao Sistema</h2>
+        <p>Digite o código de acesso para continuar:</p>
+        <input type="password" id="password-input" placeholder="Digite o código...">
+        <br>
+        <button onclick="checkPassword()">Entrar</button>
+        <p id="error-msg" style="color: red; margin-top: 10px; display: none;">Código incorreto!</p>
+    </div>
+
+    <div id="main-content">
+        <div class="header-bar">
+            <h1>Quadro de Horários e Anúncios</h1>
+            <div>
+                <span id="access-badge" class="badge"></span>
+                <button onclick="logout()" style="margin-left: 10px; background-color: #e74c3c;">Sair</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hora</th>
+                        <th>Segunda</th>
+                        <th>Terça</th>
+                        <th>Quarta</th>
+                        <th>Quinta</th>
+                        <th>Sexta</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let currentRole = null; 
+        let userPassword = ""; // Armazena temporariamente a senha para validações no servidor
+        let announcements = {};
+
+        async function checkPassword() {
+            const password = document.getElementById('password-input').value;
+            const errorMsg = document.getElementById('error-msg');
+
+            try {
+                const response = await fetch('/api/anuncios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'login', password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.authenticated) {
+                    currentRole = data.role;
+                    userPassword = password;
+                    loginSuccess();
+                } else {
+                    errorMsg.style.display = 'block';
+                    errorMsg.innerText = data.message || "Código incorreto!";
+                }
+            } catch (err) {
+                errorMsg.style.display = 'block';
+                errorMsg.innerText = "Erro ao conectar com o servidor.";
+            }
+        }
+
+        function loginSuccess() {
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+            
+            const badge = document.getElementById('access-badge');
+            if (currentRole === 'admin') {
+                badge.innerText = 'Modo: Administrador';
+                badge.className = 'badge badge-admin';
+            } else {
+                badge.innerText = 'Modo: Visitante';
+                badge.className = 'badge badge-visitor';
+            }
+
+            renderTable();
+        }
+
+        function logout() {
+            currentRole = null;
+            userPassword = "";
+            document.getElementById('password-input').value = '';
+            document.getElementById('error-msg').style.display = 'none';
+            document.getElementById('auth-container').style.display = 'block';
+            document.getElementById('main-content').style.display = 'none';
+        }
+
+        async function saveAnnouncement(id, value) {
+            announcements[id] = value;
+            // Envia a alteração para a nossa Serverless Function na Vercel
+            await fetch('/api/anuncios', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save', password: userPassword, slotId: id, value })
+            });
+        }
+
+        async function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            const days = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
+
+            try {
+                // Busca as informações direto do Vercel KV banco de dados
+                const response = await fetch('/api/anuncios');
+                announcements = await response.json() || {};
+            } catch (e) {
+                console.error("Erro ao carregar os anúncios do banco.", e);
+            }
+
+            for (let hour = 8; hour <= 18; hour++) {
+                const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+                const tr = document.createElement('tr');
+
+                const tdTime = document.createElement('td');
+                tdTime.className = 'time-slot';
+                tdTime.innerText = timeStr;
+                tr.appendChild(tdTime);
+
+                days.forEach(day => {
+                    const tdDay = document.createElement('td');
+                    const slotId = `${day}-${hour}`;
+                    const currentText = announcements[slotId] || '';
+
+                    if (currentRole === 'admin') {
+                        tdDay.innerHTML = `<textarea id="${slotId}" oninput="saveAnnouncement('${slotId}', this.value)" placeholder="Digite o anúncio...">${currentText}</textarea>`;
+                    } else {
+                        tdDay.innerHTML = `<div class="announcement-box">${currentText || '<span style="color:#bbb; font-style:italic;">Sem anúncios</span>'}</div>`;
+                    }
+                    tr.appendChild(tdDay);
+                });
+
+                tbody.appendChild(tr);
+            }
+        }
+
+        document.getElementById('password-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') checkPassword();
+        });
+    </script>
+</body>
+</html>
